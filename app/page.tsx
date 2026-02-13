@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import AuthNav from "./auth-nav";
 
 type CaptionRow = {
   id: string;
@@ -9,7 +10,7 @@ type CaptionRow = {
   images: { url: string } | { url: string }[] | null;
 };
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const { data: captions, error } = await supabase
@@ -26,9 +27,12 @@ export default async function Home() {
           <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
             HumorAI
           </h1>
-          <span className="text-sm text-zinc-500 dark:text-zinc-400">
-            AI-Generated Captions
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+              AI-Generated Captions
+            </span>
+            <AuthNav />
+          </div>
         </div>
       </header>
 
