@@ -41,9 +41,10 @@ export async function updateSession(request: NextRequest) {
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
-    request.nextUrl.pathname.startsWith("/dashboard")
+    (request.nextUrl.pathname.startsWith("/dashboard") ||
+      request.nextUrl.pathname.startsWith("/upload"))
   ) {
-    // Redirect unauthenticated users to login only for protected routes
+    // Redirect unauthenticated users to login for protected routes
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
