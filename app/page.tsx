@@ -1,6 +1,7 @@
-import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import AuthNav from "./auth-nav";
+import CaptionCard from "./caption-card";
 
 type CaptionRow = {
   id: string;
@@ -13,12 +14,36 @@ type CaptionRow = {
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  // Fetch captions (public, no auth needed)
   const { data: captions, error } = await supabase
     .from("captions")
     .select("id, content, created_datetime_utc, like_count, images(url)")
     .not("image_id", "is", null)
     .order("created_datetime_utc", { ascending: false })
     .limit(20);
+
+  // Check if user is logged in and fetch their existing votes
+  const serverSupabase = await createClient();
+  const {
+    data: { user },
+  } = await serverSupabase.auth.getUser();
+
+  let userVotes: Record<string, number> = {};
+
+  if (user && captions && captions.length > 0) {
+    const captionIds = captions.map((c) => c.id);
+    const { data: votes } = await serverSupabase
+      .from("caption_votes")
+      .select("caption_id, vote_value")
+      .eq("profile_id", user.id)
+      .in("caption_id", captionIds);
+
+    if (votes) {
+      for (const vote of votes) {
+        userVotes[vote.caption_id] = vote.vote_value;
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 font-sans dark:bg-zinc-950">
@@ -38,7 +63,9 @@ export default async function Home() {
 
       <main className="mx-auto max-w-5xl px-6 py-10">
         {error ? (
-          <p className="text-red-600">Failed to load captions: {error.message}</p>
+          <p className="text-red-600">
+            Failed to load captions: {error.message}
+          </p>
         ) : !captions || captions.length === 0 ? (
           <p className="text-zinc-500">No captions found.</p>
         ) : (
@@ -48,35 +75,18 @@ export default async function Home() {
                 ? caption.images[0]?.url
                 : caption.images?.url;
               return (
-              <div
-                key={caption.id}
-                className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
-              >
-                {imageUrl && (
-                  <div className="relative aspect-square w-full bg-zinc-100 dark:bg-zinc-800">
-                    <Image
-                      src={imageUrl}
-                      alt="Caption image"
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    />
-                  </div>
-                )}
-                <div className="flex flex-1 flex-col justify-between p-4">
-                  <p className="text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
-                    {caption.content}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between text-xs text-zinc-400">
-                    <time>
-                      {new Date(caption.created_datetime_utc).toLocaleDateString()}
-                    </time>
-                    {caption.like_count > 0 && (
-                      <span>{caption.like_count} likes</span>
-                    )}
-                  </div>
-                </div>
-              </div>
+                <CaptionCard
+                  key={caption.id}
+                  caption={{
+                    id: caption.id,
+                    content: caption.content,
+                    created_datetime_utc: caption.created_datetime_utc,
+                    like_count: caption.like_count,
+                    imageUrl: imageUrl ?? null,
+                  }}
+                  userId={user?.id ?? null}
+                  initialVote={userVotes[caption.id] ?? null}
+                />
               );
             })}
           </div>
